@@ -1,0 +1,90 @@
+__Name__ = 'Random Sub-Divisions 3D'
+__Comment__ = 'Sub-divides a specified volume into a predetermined number of randomly shaped, roughly even, rectangular prisms'
+__Author__ = 'Zachary Buser'
+__Date__ = '2024-06-28'
+__Version__ = '0.1.0'
+__License__ = 'CC BY 4.0'
+__Web__ = ''
+__Wiki__ = ''
+__Icon__ = ''
+__Xpm__ = ''
+__Help__ = ''
+__Status__ = ''
+__Requires__ = ''
+__Communication__ = ''
+__Files__ = ''
+
+import random
+import Part
+
+volume_length = 48
+volume_width = 40
+volume_height = 95
+number_cases = 180
+cases = []
+
+'''
+length = x-axis
+width = y-axis
+height = z-axis
+position = point of lowest value on each axis
+'''
+
+
+class Case:
+    def __init__(self, length, width, height, x, y, z):
+        self.length = length
+        self.width = width
+        self.height = height
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def cut(self):
+        # determine axis perpendicular to cut plane
+        axes = [self.length, self.width, self.height]
+        axis = axes.index(max(axes))
+        # determine random location of cut along axis
+        cut_location = -1 # start at -1 to enter while loop
+        mu = axes[axis] / 2 # set average cut location to middle of case
+        sigma = axes[axis] / 6 # set 1 standard deviation to 1/6th of case length
+        min_dimension = ((volume_length * volume_width * volume_height) / number_cases) ** (1/3) / 3
+        while cut_location > axes[axis] - min_dimension or cut_location < min_dimension:
+            cut_location = round(random.gauss(mu, sigma), 3)
+        # cut case, fill in space with new case
+        if axis == 0:
+            self.length = cut_location
+            cases.append(
+                Case(axes[axis] - cut_location, self.width, self.height, self.x + cut_location, self.y, self.z)
+            )
+        if axis == 1:
+            self.width = cut_location
+            cases.append(
+                Case(self.length, axes[axis] - cut_location, self.height, self.x, self.y + cut_location, self.z)
+            )
+        if axis == 2:
+            self.height = cut_location
+            cases.append(
+                Case(self.length, self.width, axes[axis] - cut_location, self.x, self.y, self.z + cut_location)
+            )
+
+
+def biggest_case():
+    volumes = {}
+    for a in cases:
+        volume = a.length * a.width * a.height
+        volumes[cases.index(a)] = volume
+    return max(volumes, key=volumes.get)
+
+
+cases.append(Case(volume_length, volume_width, volume_height, 0, 0, 0))
+while len(cases) < number_cases:
+    cases[biggest_case()].cut()
+boxes = App.ActiveDocument.addObject("App::Part", "RandomSubDivisions3D")
+for c in cases:
+    box = App.ActiveDocument.addObject("Part::Box", f"case_{cases.index(c) + 1}")
+    box.Length = c.length
+    box.Width = c.width
+    box.Height = c.height
+    box.Placement.Base = App.Vector(c.x, c.y, c.z)
+    boxes.addObject(box)
